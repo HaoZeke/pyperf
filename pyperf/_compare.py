@@ -112,17 +112,17 @@ class CompareResult(object):
         chg_text = format_result_value(self.changed.benchmark)
         if verbose:
             if show_name:
-                ref_text = "[%s] %s" % (self.ref.name, ref_text)
-                chg_text = "[%s] %s" % (self.changed.name, chg_text)
+                ref_text = f"[{self.ref.name}] {ref_text}"
+                chg_text = f"[{self.changed.name}] {chg_text}"
             if (self.ref.benchmark.get_nvalue() > 1
                or self.changed.benchmark.get_nvalue() > 1):
-                text = "Mean +- std dev: %s -> %s" % (ref_text, chg_text)
+                text = f"Mean +- std dev: {ref_text} -> {chg_text}"
             else:
-                text = "%s -> %s" % (ref_text, chg_text)
+                text = f"{ref_text} -> {chg_text}"
         else:
-            text = "%s -> %s" % (ref_text, chg_text)
+            text = f"{ref_text} -> {chg_text}"
 
-        text = "%s: %s" % (text, format_normalized_mean(self.norm_mean))
+        text = f"{text}: {format_normalized_mean(self.norm_mean)}"
         return text
 
     def format(self, verbose=True, show_name=True):
@@ -164,15 +164,13 @@ class ReSTTable:
 
     def _render_line(self, char='-'):
         parts = ['']
-        for width in self.widths:
-            parts.append(char * (width + 2))
+        parts.extend(char * (width + 2) for width in self.widths)
         parts.append('')
         return '+'.join(parts)
 
     def _render_row(self, row):
         parts = ['']
-        for width, cell in zip(self.widths, row):
-            parts.append(' %s ' % cell.ljust(width))
+        parts.extend(f' {cell.ljust(width)} ' for width, cell in zip(self.widths, row))
         parts.append('')
         return '|'.join(parts)
 
@@ -206,8 +204,7 @@ class MarkDownTable:
 
     def _render_row(self, row):
         parts = ['']
-        for width, cell in zip(self.widths, row):
-            parts.append(" %s " % cell.ljust(width))
+        parts.extend(f" {cell.ljust(width)} " for width, cell in zip(self.widths, row))
         parts.append('')
         return '|'.join(parts)
 
@@ -269,8 +266,9 @@ class CompareSuites:
 
     @staticmethod
     def display_not_significant(not_significant):
-        print("Benchmark hidden because not significant (%s): %s"
-              % (len(not_significant), ', '.join(not_significant)))
+        print(
+            f"Benchmark hidden because not significant ({len(not_significant)}): {', '.join(not_significant)}"
+        )
 
     def compare_suites_table(self, all_results):
         if self.group_by_speed:
@@ -302,7 +300,7 @@ class CompareSuites:
                 if significant:
                     text = format_normalized_mean(result.norm_mean)
                     if not self.quiet:
-                        text = "%s: %s" % (bench.format_value(bench.mean()), text)
+                        text = f"{bench.format_value(bench.mean())}: {text}"
                 else:
                     text = "not significant"
                 significants.append(significant)
@@ -371,10 +369,10 @@ class CompareSuites:
 
             if empty_line:
                 print()
-            print("%s (%s):" % (title, len(results)))
+            print(f"{title} ({len(results)}):")
             for name, result in results:
                 text = result.oneliner(verbose=False)
-                print("- %s: %s" % (name, text))
+                print(f"- {name}: {text}")
             empty_line = True
 
         if not self.quiet and not_significant:
@@ -407,7 +405,7 @@ class CompareSuites:
             else:
                 text = lines[0]
                 if self.show_name:
-                    text = '%s: %s' % (results.name, text)
+                    text = f'{results.name}: {text}'
                 print(text)
             empty_line = True
 
@@ -421,16 +419,12 @@ class CompareSuites:
             if not hidden:
                 continue
             hidden_names = [bench.get_name() for bench in hidden]
-            print("Ignored benchmarks (%s) of %s: %s"
-                  % (len(hidden), suite.filename, ', '.join(sorted(hidden_names))))
+            print(
+                f"Ignored benchmarks ({len(hidden)}) of {suite.filename}: {', '.join(sorted(hidden_names))}"
+            )
 
     def compare_geometric_mean(self, all_results):
-        # use a list since two filenames can be identical,
-        # even if results are different
-        all_norm_means = []
-        for item in all_results[0]:
-            all_norm_means.append((item.changed.name, []))
-
+        all_norm_means = [(item.changed.name, []) for item in all_results[0]]
         for results in all_results:
             for index, result in enumerate(results):
                 all_norm_means[index][1].append(result.norm_mean)

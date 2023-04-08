@@ -28,9 +28,7 @@ class BaseTestCase(object):
         return pyperf.Benchmark(runs)
 
     def run_command(self, *args, **kwargs):
-        cmd = [sys.executable, '-m', 'pyperf']
-        cmd.extend(args)
-
+        cmd = [sys.executable, '-m', 'pyperf', *args]
         proc = tests.get_output(cmd, **kwargs)
         self.assertEqual(proc.stderr, '')
         self.assertEqual(proc.returncode, 0)

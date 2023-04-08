@@ -108,14 +108,14 @@ class TestTimeit(unittest.TestCase):
                           cmd.stdout)
         self.assertIsNotNone(match, repr(cmd.stdout))
 
-        values = [float(match.group(i)) for i in range(1, 4)]
+        values = [float(match[i]) for i in range(1, 4)]
         for value in values:
             self.assertTrue(MIN_VALUE <= value <= MAX_VALUE,
                             repr(value))
 
-        mean = float(match.group('mean'))
+        mean = float(match['mean'])
         self.assertTrue(MIN_MEAN <= mean <= MAX_MEAN, mean)
-        mad = float(match.group('mad'))
+        mad = float(match['mad'])
         self.assertLessEqual(mad, MAX_STD_DEV)
 
     def test_cli(self):
@@ -140,10 +140,10 @@ class TestTimeit(unittest.TestCase):
         self.assertIsNotNone(match, repr(cmd.stdout))
 
         # Tolerate large differences on busy systems
-        mean = float(match.group('mean'))
+        mean = float(match['mean'])
         self.assertTrue(MIN_MEAN <= mean <= MAX_MEAN, mean)
 
-        mad = float(match.group('mad'))
+        mad = float(match['mad'])
         self.assertLessEqual(mad, MAX_STD_DEV)
 
     def run_timeit(self, args):
@@ -249,7 +249,7 @@ class TestTimeit(unittest.TestCase):
 
         tmp_exe = Path(tmp_exe).resolve()
         self.assertEqual(cmd.returncode, 0, repr(cmd.stdout + cmd.stderr))
-        self.assertIn("python_executable: %s" % tmp_exe, cmd.stdout)
+        self.assertIn(f"python_executable: {tmp_exe}", cmd.stdout)
 
     def test_name(self):
         name = 'myname'
@@ -257,7 +257,7 @@ class TestTimeit(unittest.TestCase):
         bench, stdout = self.run_timeit_bench(args)
 
         self.assertEqual(bench.get_name(), name)
-        self.assertRegex(stdout, re.compile('^%s' % name, flags=re.MULTILINE))
+        self.assertRegex(stdout, re.compile(f'^{name}', flags=re.MULTILINE))
 
     def test_inner_loops(self):
         inner_loops = 17
@@ -320,9 +320,17 @@ class TestTimeit(unittest.TestCase):
         sleep = 1e-3
         duplicate = 10
         args = PERF_TIMEIT
-        args += ('-n3', '-p1',
-                 '--duplicate', str(duplicate), '--loops', '1',
-                 '-s', 'import time', 'time.sleep(%s)' % sleep)
+        args += (
+            '-n3',
+            '-p1',
+            '--duplicate',
+            str(duplicate),
+            '--loops',
+            '1',
+            '-s',
+            'import time',
+            f'time.sleep({sleep})',
+        )
         bench, stdout = self.run_timeit_bench(args)
 
         metadata = bench.get_metadata()

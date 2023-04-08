@@ -6,12 +6,12 @@ import statistics
 
 
 def plot_bench(args, bench):
+    values = []
     if not args.split_runs:
         runs = bench.get_runs()
         if args.run:
             run = runs[args.run - 1]
             runs = [run]
-        values = []
         for run in runs:
             run_values = run.values
             if args.skip:
@@ -22,19 +22,16 @@ def plot_bench(args, bench):
         mean = statistics.mean(values)
         plt.plot([mean] * len(values), label='mean')
     else:
-        values = []
         width = None
-        for run_index, run in enumerate(bench.get_runs()):
-            index = 0
+        for run in bench.get_runs():
             x = []
             y = []
             run_values = run.values
             if args.skip:
                 run_values = run_values[args.skip:]
-            for value in run_values:
+            for index, value in enumerate(run_values):
                 x.append(index)
                 y.append(value)
-                index += 1
             plt.plot(x, y, color='blue')
             values.extend(run_values)
             width = len(run_values)

@@ -23,10 +23,7 @@ def _common_metadata(metadatas):
 
 
 def format_generic(value):
-    if not isinstance(value, str):
-        return str(value)
-
-    return value
+    return value if isinstance(value, str) else str(value)
 
 
 def format_system_load(load):
@@ -43,17 +40,15 @@ def is_positive(value):
 
 
 def is_tags(value):
-    if not isinstance(value, list):
-        return False
-    return all(isinstance(x, str) and x not in ('all', '') for x in value)
+    return (
+        all(isinstance(x, str) and x not in ('all', '') for x in value)
+        if isinstance(value, list)
+        else False
+    )
 
 
 def parse_load_avg(value):
-    if isinstance(value, NUMBER_TYPES):
-        return value
-    else:
-        # special case for load_avg_1min on pyperf < 0.7.2
-        return float(value)
+    return value if isinstance(value, NUMBER_TYPES) else float(value)
 
 
 def format_noop(value):
@@ -105,8 +100,7 @@ def check_metadata(name, value):
     info = get_metadata_info(name)
 
     if not isinstance(name, str):
-        raise TypeError("metadata name must be a string, got %s"
-                        % type(name).__name__)
+        raise TypeError(f"metadata name must be a string, got {type(name).__name__}")
 
     if not isinstance(value, info.types):
         raise ValueError("invalid metadata %r value type: got %r"
@@ -155,9 +149,11 @@ class Metadata(object):
         return info.formatter(self._value)
 
     def __eq__(self, other):
-        if not isinstance(other, Metadata):
-            return False
-        return (self._name == other._name and self._value == other._value)
+        return (
+            (self._name == other._name and self._value == other._value)
+            if isinstance(other, Metadata)
+            else False
+        )
 
     def __repr__(self):
         return ('<pyperf.Metadata name=%r value=%r>'

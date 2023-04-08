@@ -19,8 +19,7 @@ def bench_command(command, task, loops):
                             universal_newlines=True)
     output = popen_communicate(proc)[0]
     if proc.returncode:
-        raise Exception("Command failed with exit code %s"
-                        % proc.returncode)
+        raise Exception(f"Command failed with exit code {proc.returncode}")
 
     rss = None
     try:
@@ -48,8 +47,7 @@ class BenchCommandTask(WorkerTask):
     def compute(self):
         WorkerTask.compute(self)
         if self.args.track_memory:
-            value = self.metadata.pop('command_max_rss', None)
-            if not value:
+            if value := self.metadata.pop('command_max_rss', None):
+                self._set_memory_value(value)
+            else:
                 raise RuntimeError("failed to get the process RSS")
-
-            self._set_memory_value(value)

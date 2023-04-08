@@ -25,10 +25,7 @@ class Manager(object):
     def __init__(self, runner, python=None):
         self.runner = runner
         self.args = runner.args
-        if python:
-            self.python = python
-        else:
-            self.python = self.args.python
+        self.python = python or self.args.python
         self.bench = None
         self.need_nprocess = self.args.processes
         self.nprocess = 0
@@ -41,10 +38,18 @@ class Manager(object):
 
         cmd = [self.python]
         cmd.extend(self.runner._program_args)
-        cmd.extend(('--worker', '--pipe', str(wpipe),
-                    '--worker-task=%s' % self.runner._worker_task,
-                    '--values', str(args.values),
-                    '--min-time', str(args.min_time)))
+        cmd.extend(
+            (
+                '--worker',
+                '--pipe',
+                str(wpipe),
+                f'--worker-task={self.runner._worker_task}',
+                '--values',
+                str(args.values),
+                '--min-time',
+                str(args.min_time),
+            )
+        )
         if calibrate_loops == 1:
             cmd.append('--calibrate-loops')
         else:
@@ -60,7 +65,7 @@ class Manager(object):
         if args.verbose:
             cmd.append('-' + 'v' * args.verbose)
         if args.affinity:
-            cmd.append('--affinity=%s' % args.affinity)
+            cmd.append(f'--affinity={args.affinity}')
         if args.tracemalloc:
             cmd.append('--tracemalloc')
         if args.track_memory:
@@ -104,8 +109,7 @@ class Manager(object):
                 exitcode = proc.wait()
 
         if exitcode:
-            raise RuntimeError("%s failed with exit code %s"
-                               % (cmd[0], exitcode))
+            raise RuntimeError(f"{cmd[0]} failed with exit code {exitcode}")
 
         return _load_suite_from_pipe(bench_json)
 
@@ -133,12 +137,12 @@ class Manager(object):
         # get the run
         benchmarks = suite._benchmarks
         if len(benchmarks) != 1:
-            raise ValueError("worker produced %s benchmarks instead of 1"
-                             % len(benchmarks))
+            raise ValueError(f"worker produced {len(benchmarks)} benchmarks instead of 1")
         worker_bench = benchmarks[0]
         if len(worker_bench._runs) != 1:
-            raise ValueError("worker produced %s runs, only 1 run expected"
-                             % len(worker_bench._runs))
+            raise ValueError(
+                f"worker produced {len(worker_bench._runs)} runs, only 1 run expected"
+            )
         run = worker_bench._runs[0]
 
         # save the run into bench
@@ -162,9 +166,9 @@ class Manager(object):
 
     def calibration_done(self):
         if self.args.verbose:
-            print("Calibration: %s, %s"
-                  % (format_number(self.args.warmups, 'warmup'),
-                     format_number(self.args.loops, 'loop')))
+            print(
+                f"Calibration: {format_number(self.args.warmups, 'warmup')}, {format_number(self.args.loops, 'loop')}"
+            )
         self.calibrate_loops = 0
         self.calibrate_warmups = 0
 

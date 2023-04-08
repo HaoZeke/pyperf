@@ -56,10 +56,6 @@ def check_tracking_memory():
         mem_thread.get()
     except IOError as exc:
         path = proc_path("self/smaps")
-        return "unable to read %s: %s" % (path, exc)
+        return f"unable to read {path}: {exc}"
 
-    if not mem_thread.peak_usage:
-        return "memory usage is zero"
-
-    # it seems to work
-    return None
+    return None if mem_thread.peak_usage else "memory usage is zero"

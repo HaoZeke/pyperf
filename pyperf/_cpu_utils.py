@@ -30,10 +30,7 @@ def get_logical_cpu_count():
             except NotImplementedError:
                 pass
 
-    if cpu_count is not None and cpu_count < 1:
-        return None
-
-    return cpu_count
+    return None if cpu_count is not None and cpu_count < 1 else cpu_count
 
 
 def format_cpu_list(cpus):
@@ -46,13 +43,13 @@ def format_cpu_list(cpus):
             first = cpu
         elif cpu != last + 1:
             if first != last:
-                parts.append('%s-%s' % (first, last))
+                parts.append(f'{first}-{last}')
             else:
                 parts.append(str(last))
             first = cpu
         last = cpu
     if first != last:
-        parts.append('%s-%s' % (first, last))
+        parts.append(f'{first}-{last}')
     else:
         parts.append(str(last))
     return ','.join(parts)
@@ -68,7 +65,7 @@ def format_cpu_infos(infos):
     text = []
     for cpus, info in items:
         cpus = format_cpu_list(cpus)
-        text.append('%s=%s' % (cpus, info))
+        text.append(f'{cpus}={info}')
     return text
 
 
@@ -88,8 +85,7 @@ def parse_cpu_list(cpu_list):
             parts = part.split('-', 1)
             first = int(parts[0])
             last = int(parts[1])
-            for cpu in range(first, last + 1):
-                cpus.append(cpu)
+            cpus.extend(iter(range(first, last + 1)))
         else:
             cpus.append(int(part))
     cpus.sort()
@@ -131,15 +127,12 @@ def get_isolated_cpus():
     # The cpu/isolated sysfs was added in Linux 4.2
     # (commit 59f30abe94bff50636c8cad45207a01fdcb2ee49)
     path = sysfs_path('devices/system/cpu/isolated')
-    isolated = read_first_line(path)
-    if isolated:
+    if isolated := read_first_line(path):
         return parse_cpu_list(isolated)
 
-    cmdline = read_first_line(proc_path('cmdline'))
-    if cmdline:
-        match = re.search(r'\bisolcpus=([^ ]+)', cmdline)
-        if match:
-            isolated = match.group(1)
+    if cmdline := read_first_line(proc_path('cmdline')):
+        if match := re.search(r'\bisolcpus=([^ ]+)', cmdline):
+            isolated = match[1]
             return parse_cpu_list(isolated)
 
     return None

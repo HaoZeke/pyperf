@@ -35,13 +35,12 @@ else:
 def get_peak_pagefile_usage():
     process = GetCurrentProcess()
     counters = PROCESS_MEMORY_COUNTERS_EX()
-    ret = GetProcessMemoryInfo(process,
-                               ctypes.byref(counters),
-                               ctypes.sizeof(counters))
-    if not ret:
+    if ret := GetProcessMemoryInfo(
+        process, ctypes.byref(counters), ctypes.sizeof(counters)
+    ):
+        return counters.PeakPagefileUsage
+    else:
         raise ctypes.WinError()
-
-    return counters.PeakPagefileUsage
 
 
 def check_tracking_memory():
@@ -50,8 +49,4 @@ def check_tracking_memory():
                 "unable to get GetProcessMemoryInfo()")
 
     usage = get_peak_pagefile_usage()
-    if not usage:
-        return "memory usage is zero"
-
-    # it seems to work
-    return None
+    return None if usage else "memory usage is zero"

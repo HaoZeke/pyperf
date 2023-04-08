@@ -300,7 +300,7 @@ class Benchmarks:
                 if show_name:
                     title = name
                     if show_filename:
-                        title = "%s:%s" % (filename, title)
+                        title = f"{filename}:{title}"
                 else:
                     title = None
                 last_benchmark = (bench_index == (len(benchmarks) - 1))
@@ -331,11 +331,7 @@ class Benchmarks:
                 benchmark = suite.get_benchmark(name)
                 filename = format_filename(suite.filename)
                 if show_name:
-                    if not show_filename:
-                        title = name
-                    else:
-                        # name is displayed in the group title
-                        title = filename
+                    title = filename if show_filename else name
                 else:
                     title = None
                 benchmarks.append(GroupItem(benchmark, title, filename))
@@ -349,11 +345,9 @@ class Benchmarks:
     def group_by_name_ignored(self):
         names = set(self._group_by_name_names())
         for suite in self.suites:
-            ignored = []
-            for bench in suite:
-                if bench.get_name() not in names:
-                    ignored.append(bench)
-            if ignored:
+            if ignored := [
+                bench for bench in suite if bench.get_name() not in names
+            ]:
                 yield (suite, ignored)
 
 
@@ -426,38 +420,37 @@ def display_benchmarks(args, show_metadata=False, hist=False, stats=False,
     else:
         use_title = False
         if checks:
-            for index, item in enumerate(data):
+            for item in data:
                 warnings = format_checks(item.benchmark)
                 if warnings:
                     use_title = True
                     break
 
+    suite = None
     if use_title:
         show_filename = (data.get_nsuite() > 1)
         show_name = not data.has_same_unique_benchmark()
         if not show_filename and stats:
             show_filename = (len(data) > 1)
 
-        suite = None
         for index, item in enumerate(data):
             lines = []
 
             if show_metadata:
-                metadata = metadatas[index]
-                if metadata:
+                if metadata := metadatas[index]:
                     empty_line(lines)
                     lines.append("Metadata:")
                     format_metadata(metadata, lines=lines)
 
-            bench_lines = format_benchmark(item.benchmark,
-                                           hist=hist,
-                                           stats=stats,
-                                           dump=dump,
-                                           checks=checks,
-                                           result=result,
-                                           display_runs_args=display_runs_args)
-
-            if bench_lines:
+            if bench_lines := format_benchmark(
+                item.benchmark,
+                hist=hist,
+                stats=stats,
+                dump=dump,
+                checks=checks,
+                result=result,
+                display_runs_args=display_runs_args,
+            ):
                 empty_line(lines)
                 lines.extend(bench_lines)
 
@@ -473,14 +466,24 @@ def display_benchmarks(args, show_metadata=False, hist=False, stats=False,
                         empty_line(lines)
 
                         duration = suite.get_total_duration()
-                        lines.append("Number of benchmarks: %s" % len(suite))
-                        lines.append("Total duration: %s" % format_seconds(duration))
-                        dates = suite.get_dates()
-                        if dates:
+                        lines.extend(
+                            (
+                                f"Number of benchmarks: {len(suite)}",
+                                f"Total duration: {format_seconds(duration)}",
+                            )
+                        )
+                        if dates := suite.get_dates():
                             start, end = dates
-                            lines.append("Start date: %s" % format_datetime(start, microsecond=False))
-                            lines.append("End date: %s" % format_datetime(end, microsecond=False))
-
+                            lines.extend(
+                                (
+                                    "Start date: %s"
+                                    % format_datetime(
+                                        start, microsecond=False
+                                    ),
+                                    "End date: %s"
+                                    % format_datetime(end, microsecond=False),
+                                )
+                            )
                 if show_name:
                     format_title(item.name, 2, lines=lines)
 
@@ -505,7 +508,6 @@ def display_benchmarks(args, show_metadata=False, hist=False, stats=False,
 
         show_filename = (data.get_nsuite() > 1)
 
-        suite = None
         for item in data:
             if show_filename and item.suite is not suite:
                 if suite is not None:
@@ -516,7 +518,7 @@ def display_benchmarks(args, show_metadata=False, hist=False, stats=False,
 
             line = format_result(item.benchmark)
             if item.title:
-                line = '%s: %s' % (item.name, line)
+                line = f'{item.name}: {line}'
             print(line)
 
 
@@ -586,7 +588,7 @@ def cmd_hist(args):
     for suite, ignored in ignored:
         for bench in ignored:
             name = bench.get_name()
-            print("[ %s ]" % name)
+            print(f"[ {name} ]")
             for line in format_histogram([name], bins=args.bins,
                                          extend=args.extend,
                                          checks=checks):
@@ -714,8 +716,7 @@ def cmd_slowest(args):
 
         for index, item in enumerate(benchs[:nslowest], 1):
             duration, bench = item
-            print("#%s: %s (%s)"
-                  % (index, bench.get_name(), format_timedelta(duration)))
+            print(f"#{index}: {bench.get_name()} ({format_timedelta(duration)})")
 
 
 def cmd_system(args):
