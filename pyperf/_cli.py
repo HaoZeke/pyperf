@@ -20,10 +20,7 @@ def format_title(title, level=1, lines=None):
     empty_line(lines)
 
     lines.append(title)
-    if level == 1:
-        char = '='
-    else:
-        char = '-'
+    char = '=' if level == 1 else '-'
     lines.append(char * len(title))
     return lines
 
@@ -39,7 +36,7 @@ def format_metadata(metadata, prefix='- ', lines=None):
         lines = []
     for name, value in sorted(metadata.items()):
         value = _format_metadata(name, value)
-        lines.append("%s%s: %s" % (prefix, name, value))
+        lines.append(f"{prefix}{name}: {value}")
     return lines
 
 
@@ -66,43 +63,30 @@ def format_run(bench, run_index, run, common_metadata=None, raw=False,
     if run._is_calibration():
         if run._is_calibration_warmups():
             warmups = run._get_calibration_warmups()
-            action = 'calibrate the number of warmups: %s' % format_number(warmups)
+            action = f'calibrate the number of warmups: {format_number(warmups)}'
         elif run._is_recalibration_warmups():
             warmups = run._get_calibration_warmups()
-            action = 'recalibrate the number of warmups: %s' % format_number(warmups)
+            action = f'recalibrate the number of warmups: {format_number(warmups)}'
         elif run._is_recalibration_loops():
             loops = run._get_calibration_loops()
-            action = 'recalibrate the number of loops: %s' % format_number(loops)
+            action = f'recalibrate the number of loops: {format_number(loops)}'
         else:
             loops = run._get_calibration_loops()
-            action = 'calibrate the number of loops: %s' % format_number(loops)
-        lines.append("Run %s: %s" % (run_index, action))
-        if raw:
-            name = 'raw calibrate'
-        else:
-            name = 'calibrate'
+            action = f'calibrate the number of loops: {format_number(loops)}'
+        lines.append(f"Run {run_index}: {action}")
+        name = 'raw calibrate' if raw else 'calibrate'
         unit = bench.get_unit()
         format_value = bench.format_value
         for index, warmup in enumerate(run.warmups, 1):
             loops, value = warmup
             raw_value = value * (loops * inner_loops)
             if raw:
-                text = ("%s (loops: %s)"
-                        % (format_value(raw_value),
-                           format_number(loops)))
-            # when using --track-memory, displaying value * loops doesn't make
-            # sense, so only display raw value if the unit is seconds
+                text = f"{format_value(raw_value)} (loops: {format_number(loops)})"
             elif unit == 'second':
-                text = ("%s (loops: %s, raw: %s)"
-                        % (format_value(value),
-                           format_number(loops),
-                           format_value(raw_value)))
+                text = f"{format_value(value)} (loops: {format_number(loops)}, raw: {format_value(raw_value)})"
             else:
-                text = ("%s (loops: %s)"
-                        % (format_value(value),
-                           format_number(loops)))
-            lines.append("- %s %s: %s"
-                         % (name, index, text))
+                text = f"{format_value(value)} (loops: {format_number(loops)})"
+            lines.append(f"- {name} {index}: {text}")
     else:
         show_warmup = (verbose >= 0)
 
@@ -122,38 +106,29 @@ def format_run(bench, run_index, run, common_metadata=None, raw=False,
 
         if verbose >= 0:
             loops = run.get_loops()
-            lines.append("Run %s: %s, %s, %s"
-                         % (run_index,
-                            format_number(len(warmups), 'warmup'),
-                            format_number(len(values), 'value'),
-                            format_number(loops, 'loop')))
+            lines.append(
+                f"Run {run_index}: {format_number(len(warmups), 'warmup')}, {format_number(len(values), 'value')}, {format_number(loops, 'loop')}"
+            )
         else:
-            lines.append("Run %s:" % run_index)
+            lines.append(f"Run {run_index}:")
 
         if warmups and show_warmup:
-            if raw:
-                name = 'raw warmup'
-            else:
-                name = 'warmup'
+            name = 'raw warmup' if raw else 'warmup'
             for index, warmup in enumerate(warmups, 1):
-                lines.append('- %s %s: %s' % (name, index, warmup))
+                lines.append(f'- {name} {index}: {warmup}')
 
-        if raw:
-            name = 'raw value'
-        else:
-            name = 'value'
+        name = 'raw value' if raw else 'value'
         for index, value in enumerate(values, 1):
-            lines.append('- %s %s: %s' % (name, index, value))
+            lines.append(f'- {name} {index}: {value}')
 
     if verbose > 0:
-        metadata = run.get_metadata()
-        if metadata:
+        if metadata := run.get_metadata():
             lines.append('- Metadata:')
             for name, value in sorted(metadata.items()):
                 if common_metadata and name in common_metadata:
                     continue
                 value = _format_metadata(name, value)
-                lines.append('  %s: %s' % (name, value))
+                lines.append(f'  {name}: {value}')
 
     return lines
 
@@ -208,7 +183,7 @@ def format_stats(bench, lines):
     # Total duration
     duration = bench.get_total_duration()
     if duration:
-        lines.append("Total duration: %s" % format_seconds(duration))
+        lines.append(f"Total duration: {format_seconds(duration)}")
 
     # Start/End dates
     dates = bench.get_dates()
@@ -219,17 +194,17 @@ def format_stats(bench, lines):
 
     # Raw value minimize/maximum
     raw_values = bench._get_raw_values()
-    lines.append("Raw value minimum: %s" % bench.format_value(min(raw_values)))
-    lines.append("Raw value maximum: %s" % bench.format_value(max(raw_values)))
+    lines.append(f"Raw value minimum: {bench.format_value(min(raw_values))}")
+    lines.append(f"Raw value maximum: {bench.format_value(max(raw_values))}")
     lines.append('')
 
     # Number of values
     ncalibration_runs = sum(run._is_calibration() for run in bench._runs)
-    lines.append("Number of calibration run: %s"
-                 % format_number(ncalibration_runs))
-    lines.append("Number of run with values: %s"
-                 % (format_number(nrun - ncalibration_runs)))
-    lines.append("Total number of run: %s" % format_number(nrun))
+    lines.append(f"Number of calibration run: {format_number(ncalibration_runs)}")
+    lines.append(
+        f"Number of run with values: {format_number(nrun - ncalibration_runs)}"
+    )
+    lines.append(f"Total number of run: {format_number(nrun)}")
     lines.append('')
 
     # Number of values
@@ -237,13 +212,13 @@ def format_stats(bench, lines):
     text = format_number(nwarmup)
     if isinstance(nwarmup, float):
         text += ' (average)'
-    lines.append('Number of warmup per run: %s' % text)
+    lines.append(f'Number of warmup per run: {text}')
 
     nvalue_per_run = bench._get_nvalue_per_run()
     text = format_number(nvalue_per_run)
     if isinstance(nvalue_per_run, float):
         text += ' (average)'
-    lines.append('Number of value per run: %s' % text)
+    lines.append(f'Number of value per run: {text}')
 
     # Loop iterations per value
     loops = bench.get_loops()
@@ -252,7 +227,7 @@ def format_stats(bench, lines):
     if isinstance(total_loops, int):
         text = format_number(total_loops)
     else:
-        text = "%s (average)" % total_loops
+        text = f"{total_loops} (average)"
 
     if not (isinstance(inner_loops, int) and inner_loops == 1):
         if isinstance(loops, int):
@@ -265,10 +240,10 @@ def format_stats(bench, lines):
         else:
             inner_loops = "%.1f inner-loops (average)" % inner_loops
 
-        text = '%s (%s x %s)' % (text, loops, inner_loops)
+        text = f'{text} ({loops} x {inner_loops})'
 
-    lines.append("Loop iterations per value: %s" % text)
-    lines.append("Total number of values: %s" % format_number(nvalue))
+    lines.append(f"Loop iterations per value: {text}")
+    lines.append(f"Total number of values: {format_number(nvalue)}")
     lines.append('')
 
     # Minimum
@@ -298,8 +273,8 @@ def format_stats(bench, lines):
     # Render table
     width = max(len(row[0]) + 1 for row in table)
     for key, value in table:
-        key = (key + ':').ljust(width)
-        lines.append("%s %s" % (key, value))
+        key = f'{key}:'.ljust(width)
+        lines.append(f"{key} {value}")
     lines.append('')
 
     def format_limit(mean, value):
@@ -369,7 +344,7 @@ def format_histogram(benchmarks, bins=20, extend=False, lines=None,
 
         bench, title = item
         if title:
-            lines.append("[ %s ]" % title)
+            lines.append(f"[ {title} ]")
 
         values = bench.get_values()
 
@@ -378,9 +353,11 @@ def format_histogram(benchmarks, bins=20, extend=False, lines=None,
         count_max = max(counter.values())
         count_width = len(str(count_max))
 
-        value_width = max([len(bench.format_value(bucket * value_k))
-                           for bucket in range(bucket_min, bucket_max + 1)])
-        line = ': %s #' % count_max
+        value_width = max(
+            len(bench.format_value(bucket * value_k))
+            for bucket in range(bucket_min, bucket_max + 1)
+        )
+        line = f': {count_max} #'
         width = columns - (value_width + len(line))
         if not extend:
             width = min(width, 79)
@@ -433,21 +410,21 @@ def format_checks(bench, lines=None):
                 text = "%.0f%% greater" % (percent)
             else:
                 text = "%.0f%% smaller" % (-percent)
-            warn("the %s (%s) is %s than the mean (%s)"
-                 % (minimum, bench.format_value(value), text, bench.format_value(mean)))
+            warn(
+                f"the {minimum} ({bench.format_value(value)}) is {text} than the mean ({bench.format_value(mean)})"
+            )
 
     # Check that the shortest raw value took at least 1 ms
     if bench.get_unit() == 'second':
         shortest = min(bench._get_raw_values())
         if shortest < 1e-3:
-            warn("the shortest raw value is only %s"
-                 % bench.format_value(shortest))
+            warn(f"the shortest raw value is only {bench.format_value(shortest)}")
 
     if warnings:
         empty_line(lines)
         lines.append("WARNING: the benchmark result may be unstable")
         for msg in warnings:
-            lines.append("* %s" % msg)
+            lines.append(f"* {msg}")
         empty_line(lines)
         lines.append("Try to rerun the benchmark with more runs, values "
                      "and/or loops.")
@@ -467,7 +444,7 @@ def format_checks(bench, lines=None):
             warn("WARNING: nohz_full is enabled on CPUs which use the "
                  "intel_pstate driver, whereas intel_pstate is incompatible "
                  "with nohz_full")
-            warn("CPU config: %s" % cpu_config)
+            warn(f"CPU config: {cpu_config}")
             warn("See https://bugzilla.redhat.com/show_bug.cgi?id=1378529")
             break
 
@@ -476,11 +453,10 @@ def format_checks(bench, lines=None):
 
 def _format_result_value(bench):
     mean = bench.mean()
-    if bench.get_nvalue() >= 2:
-        args = bench.format_values((mean, bench.stdev()))
-        return '%s +- %s' % args
-    else:
+    if bench.get_nvalue() < 2:
         return bench.format_value(mean)
+    args = bench.format_values((mean, bench.stdev()))
+    return '%s +- %s' % args
 
 
 def format_result_value(bench):
@@ -508,7 +484,7 @@ def format_result_value(bench):
     if warmups is not None:
         info.append(format_number(warmups, 'warmup'))
     if info:
-        return '<calibration: %s>' % ', '.join(info)
+        return f"<calibration: {', '.join(info)}>"
 
     return _format_result_value(bench)
 
@@ -538,13 +514,10 @@ def format_result(bench):
     if warmups is not None:
         info.append(format_number(warmups, 'warmup'))
     if info:
-        return 'Calibration: %s' % ', '.join(info)
+        return f"Calibration: {', '.join(info)}"
 
     text = _format_result_value(bench)
-    if bench.get_nvalue() >= 2:
-        return 'Mean +- std dev: %s' % text
-    else:
-        return text
+    return f'Mean +- std dev: {text}' if bench.get_nvalue() >= 2 else text
 
 
 def format_benchmark(bench, checks=True, metadata=False,
@@ -576,7 +549,7 @@ def format_benchmark(bench, checks=True, metadata=False,
         text = format_result(bench)
         if show_name:
             name = bench.get_name()
-            text = "%s: %s" % (name, text)
+            text = f"{name}: {text}"
         lines.append(text)
 
     return lines
@@ -589,11 +562,7 @@ def multiline_output(args):
 
 @contextlib.contextmanager
 def catch_broken_pipe_error(file=None):
-    if file is None:
-        files = [sys.stdout, sys.stderr]
-    else:
-        files = [file]
-
+    files = [sys.stdout, sys.stderr] if file is None else [file]
     try:
         for file in files:
             file.flush()
@@ -613,7 +582,5 @@ def catch_broken_pipe_error(file=None):
         # close at exit which would log the error:
         # "Exception ignored in: ... BrokenPipeError: ..."
         for file in files:
-            try:
+            with contextlib.suppress(IOError):
                 file.close()
-            except IOError:
-                pass

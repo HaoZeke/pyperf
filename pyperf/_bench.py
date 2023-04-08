@@ -72,7 +72,7 @@ def _check_warmups(warmups):
 
 
 def _cached_attr(func):
-    attr = '_' + func.__name__
+    attr = f'_{func.__name__}'
 
     def method(self):
         value = getattr(self, attr)
@@ -103,10 +103,7 @@ class Run(object):
                              "is a float >= 0.0")
 
         # tuple of (loops: int, value) items
-        if warmups:
-            self._warmups = tuple(warmups)
-        else:
-            self._warmups = None
+        self._warmups = tuple(warmups) if warmups else None
         self._values = tuple(values)
 
         if not self._values and not self._warmups:
@@ -118,23 +115,14 @@ class Run(object):
             metadata2 = collect_func()
             if metadata is not None:
                 metadata2.update(metadata)
-                metadata = metadata2
-            else:
-                metadata = metadata2
-
+            metadata = metadata2
         # Metadata dictionary
-        if metadata:
-            self._metadata = parse_metadata(metadata)
-        else:
-            self._metadata = {}
+        self._metadata = parse_metadata(metadata) if metadata else {}
 
     def _replace(self, values=None, warmups=True, metadata=None):
         if values is None:
             values = self._values
-        if warmups:
-            warmups = self._warmups
-        else:
-            warmups = None
+        warmups = self._warmups if warmups else None
         if metadata is None:
             # share metadata dict since Run metadata is immutable
             metadata = self._metadata
@@ -198,10 +186,7 @@ class Run(object):
 
     @property
     def warmups(self):
-        if self._warmups:
-            return self._warmups
-        else:
-            return ()
+        return self._warmups or ()
 
     @property
     def values(self):
@@ -229,10 +214,7 @@ class Run(object):
         return raw_values
 
     def _remove_warmups(self):
-        if not self._warmups:
-            return self
-
-        return self._replace(warmups=False)
+        return self._replace(warmups=False) if self._warmups else self
 
     def _get_duration(self):
         duration = self._metadata.get('duration', None)
@@ -251,8 +233,7 @@ class Run(object):
         if self._values:
             data['values'] = self._values
 
-        metadata = _exclude_common_metadata(self._metadata, common_metadata)
-        if metadata:
+        if metadata := _exclude_common_metadata(self._metadata, common_metadata):
             data['metadata'] = metadata
         return data
 
@@ -286,11 +267,7 @@ class Run(object):
             raise KeyError("run has no metadata %r" % name)
 
         info = get_metadata_info(name)
-        if info.unit:
-            metadata = dict(self._metadata, unit=info.unit)
-        else:
-            metadata = None
-
+        metadata = dict(self._metadata, unit=info.unit) if info.unit else None
         if not isinstance(value, NUMBER_TYPES):
             raise TypeError("metadata %r value is not an integer: got %s"
                             % (name, type(value).__name__))
@@ -315,7 +292,7 @@ class Run(object):
                 raise ValueError("inner_loops metadata cannot be modified")
 
         metadata2 = dict(self._metadata)
-        metadata2.update(metadata)
+        metadata2 |= metadata
         return self._replace(metadata=metadata2)
 
 
@@ -360,11 +337,7 @@ class Benchmark(object):
         # ignore calibration runs
         values = [get_property(run) for run in self._runs
                   if not run._is_calibration()]
-        if len(set(values)) == 1:
-            return values[0]
-
-        # Compute the mean (float)
-        return math.fsum(values) / len(values)
+        return values[0] if len(set(values)) == 1 else math.fsum(values) / len(values)
 
     def _get_nwarmup(self):
         return self._get_run_property(lambda run: len(run.warmups))
@@ -431,7 +404,7 @@ class Benchmark(object):
 
     def add_run(self, run):
         if not isinstance(run, Run):
-            raise TypeError("Run expected, got %s" % type(run).__name__)
+            raise TypeError(f"Run expected, got {type(run).__name__}")
 
         # Don't check metadata for the first run
         if self._runs:
@@ -522,8 +495,7 @@ class Benchmark(object):
         common_metadata = dict(metadata, **suite_metadata)
 
         data = {'runs': [run._as_json(common_metadata) for run in self._runs]}
-        metadata = _exclude_common_metadata(metadata, suite_metadata)
-        if metadata:
+        if metadata := _exclude_common_metadata(metadata, suite_metadata):
             data['metadata'] = metadata
         return data
 
@@ -532,7 +504,7 @@ class Benchmark(object):
         suite = BenchmarkSuite.load(file)
         benchmarks = suite.get_benchmarks()
         if len(benchmarks) != 1:
-            raise ValueError("expected 1 benchmark, got %s" % len(benchmarks))
+            raise ValueError(f"expected 1 benchmark, got {len(benchmarks)}")
         return benchmarks[0]
 
     @staticmethod
@@ -540,7 +512,7 @@ class Benchmark(object):
         suite = BenchmarkSuite.loads(string)
         benchmarks = suite.get_benchmarks()
         if len(benchmarks) != 1:
-            raise ValueError("expected 1 benchmark, got %s" % len(benchmarks))
+            raise ValueError(f"expected 1 benchmark, got {len(benchmarks)}")
         return benchmarks[0]
 
     def dump(self, file, compact=True, replace=False):
@@ -557,10 +529,7 @@ class Benchmark(object):
         if include:
             old_runs = self._runs
             max_index = len(old_runs) - 1
-            runs = []
-            for index in only_runs:
-                if index <= max_index:
-                    runs.append(old_runs[index])
+            runs = [old_runs[index] for index in only_runs if index <= max_index]
         else:
             runs = self._runs
             max_index = len(runs) - 1
@@ -575,8 +544,7 @@ class Benchmark(object):
 
     def add_runs(self, benchmark):
         if not isinstance(benchmark, Benchmark):
-            raise TypeError("expected Benchmark, got %s"
-                            % type(benchmark).__name__)
+            raise TypeError(f"expected Benchmark, got {type(benchmark).__name__}")
 
         if benchmark is self:
             raise ValueError("cannot add a benchmark to itself")
@@ -604,10 +572,7 @@ class Benchmark(object):
             if end is None or run_end > end:
                 end = run_end
 
-        if start is not None:
-            self._dates = (start, end)
-        else:
-            self._dates = None
+        self._dates = (start, end) if start is not None else None
         return self._dates
 
     def _extract_metadata(self, name):
@@ -668,8 +633,9 @@ class BenchmarkSuite(object):
             for benchmark in result:
                 self._add_benchmark_runs(benchmark)
         else:
-            raise TypeError("expect Benchmark or BenchmarkSuite, got %s"
-                            % type(result).__name__)
+            raise TypeError(
+                f"expect Benchmark or BenchmarkSuite, got {type(result).__name__}"
+            )
 
     def get_benchmark(self, name):
         for bench in self._benchmarks:
@@ -684,8 +650,7 @@ class BenchmarkSuite(object):
         if benchmark in self._benchmarks:
             raise ValueError("benchmark already part of the suite")
 
-        name = benchmark.get_name()
-        if name:
+        if name := benchmark.get_name():
             try:
                 self.get_benchmark(name)
             except KeyError:
@@ -715,26 +680,19 @@ class BenchmarkSuite(object):
         for bench_data in benchmarks_json:
             benchmark = Benchmark._json_load(version_info, bench_data, metadata)
             benchmarks.append(benchmark)
-        suite = cls(benchmarks, filename=filename)
-
-        if not suite:
+        if suite := cls(benchmarks, filename=filename):
+            return suite
+        else:
             raise ValueError("the file doesn't contain any benchmark")
-
-        return suite
 
     @staticmethod
     def _load_open(filename):
-        if isinstance(filename, bytes):
-            suffix = b'.gz'
-        else:
-            suffix = u'.gz'
-
-        if filename.endswith(suffix):
-            # Use lazy import to limit imports on 'import pyperf'
-            import gzip
-            return gzip.open(filename, "rt", encoding="utf-8")
-        else:
+        suffix = b'.gz' if isinstance(filename, bytes) else u'.gz'
+        if not filename.endswith(suffix):
             return open(filename, "r", encoding="utf-8")
+        # Use lazy import to limit imports on 'import pyperf'
+        import gzip
+        return gzip.open(filename, "rt", encoding="utf-8")
 
     @classmethod
     def load(cls, file):
@@ -767,21 +725,16 @@ class BenchmarkSuite(object):
 
     @staticmethod
     def _dump_open(filename, replace):
-        if isinstance(filename, bytes):
-            suffix = b'.gz'
-        else:
-            suffix = u'.gz'
-
+        suffix = b'.gz' if isinstance(filename, bytes) else u'.gz'
         if not replace and os.path.exists(filename):
             raise OSError(errno.EEXIST, "File already exists")
 
-        if filename.endswith(suffix):
-            # Use lazy import to limit imports on 'import pyperf'
-            import gzip
-
-            return gzip.open(filename, mode="wt", encoding="utf-8")
-        else:
+        if not filename.endswith(suffix):
             return open(filename, "w", encoding="utf-8")
+        # Use lazy import to limit imports on 'import pyperf'
+        import gzip
+
+        return gzip.open(filename, mode="wt", encoding="utf-8")
 
     def _as_json(self):
         metadata = self.get_metadata()
@@ -824,11 +777,10 @@ class BenchmarkSuite(object):
 
     def _convert_include_benchmark(self, names):
         name_set = set(names)
-        benchmarks = [bench for bench in self
-                      if bench.get_name() in name_set]
-        if not benchmarks:
+        if benchmarks := [bench for bench in self if bench.get_name() in name_set]:
+            self._replace_benchmarks(benchmarks)
+        else:
             raise KeyError("no benchmark found with name in %r" % names)
-        self._replace_benchmarks(benchmarks)
 
     def _convert_exclude_benchmark(self, names):
         name_set = set(names)
@@ -851,10 +803,7 @@ class BenchmarkSuite(object):
                 start = dates[0]
             if end is None or dates[1] > end:
                 end = dates[1]
-        if start is not None:
-            return (start, end)
-        else:
-            return None
+        return (start, end) if start is not None else None
 
 
 def add_runs(filename, result):

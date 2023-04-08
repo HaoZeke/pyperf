@@ -271,10 +271,8 @@ class TestRunner(unittest.TestCase):
         runner = self.create_runner(args)
 
         def time_func(loops):
-            if loops < 8:
-                return 0.5
-            else:
-                return 1.0
+            return 0.5 if loops < 8 else 1.0
+
         time_func.step = 0
 
         warmups = (
@@ -360,7 +358,7 @@ class TestRunner(unittest.TestCase):
     def check_two_benchmarks(self, task=None):
         args = ['--worker', '--loops=1', '-w0', '-n3']
         if task is not None:
-            args.append('--worker-task=%s' % task)
+            args.append(f'--worker-task={task}')
         runner = self.create_runner(args)
 
         def time_func(loops):

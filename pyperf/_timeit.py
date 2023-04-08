@@ -85,10 +85,7 @@ class Timer:
         else:
             raise ValueError("teardown is neither a string nor callable")
 
-        if PYPY:
-            template = PYPY_TEMPLATE
-        else:
-            template = TEMPLATE
+        template = PYPY_TEMPLATE if PYPY else TEMPLATE
         src = template.format(stmt=stmt, setup=setup, init=init,
                               teardown=teardown)
         self.src = src  # Save for traceback display
@@ -119,19 +116,17 @@ class Timer:
     def time_func(self, loops):
         inner = self.make_inner()
         timer = time.perf_counter
-        if not PYPY:
-            it = itertools.repeat(None, loops)
-            return inner(it, timer)
-        else:
+        if PYPY:
             # PyPy
             return inner(loops, timer)
+        it = itertools.repeat(None, loops)
+        return inner(it, timer)
 
 
 def strip_statements(statements):
     result = []
     for stmt in statements:
-        stmt = stmt.rstrip()
-        if stmt:
+        if stmt := stmt.rstrip():
             result.append(stmt)
     return result
 
@@ -201,7 +196,7 @@ def bench_timeit(runner, name, stmt, setup, teardown,
 
     metadata = {}
     if func_metadata:
-        metadata.update(func_metadata)
+        metadata |= func_metadata
     if setup:
         metadata['timeit_setup'] = format_statements(setup)
     if teardown:

@@ -31,7 +31,7 @@ class WorkerTask:
 
         self.metadata = dict(runner.metadata)
         if func_metadata:
-            self.metadata.update(func_metadata)
+            self.metadata |= func_metadata
         if 'unit' not in self.metadata:
             # Set default unit to seconds
             self.metadata['unit'] = 'second'
@@ -51,11 +51,7 @@ class WorkerTask:
         if self.loops <= 0:
             raise ValueError("loops must be >= 1")
 
-        if is_warmup:
-            value_name = 'Warmup'
-        else:
-            value_name = 'Value'
-
+        value_name = 'Warmup' if is_warmup else 'Value'
         task_func = self.task_func
 
         # If we are on a pystats build, turn on stats collection around the
@@ -76,10 +72,7 @@ class WorkerTask:
         inner_loops = self.inner_loops
         if not inner_loops:
             inner_loops = 1
-        while True:
-            if index > nvalue:
-                break
-
+        while True and index <= nvalue:
             raw_value = task_func(self, self.loops)
             raw_value = float(raw_value)
             value = raw_value / (self.loops * inner_loops)
@@ -95,20 +88,15 @@ class WorkerTask:
             if args.verbose:
                 text = format_value(unit, value)
                 if is_warmup:
-                    text = ('%s (loops: %s, raw: %s)'
-                            % (text,
-                               format_number(self.loops),
-                               format_value(unit, raw_value)))
-                print("%s %s: %s" % (value_name, start + index, text))
+                    text = f'{text} (loops: {format_number(self.loops)}, raw: {format_value(unit, raw_value)})'
+                print(f"{value_name} {start + index}: {text}")
 
             if calibrate_loops and raw_value < args.min_time:
                 if self.loops * 2 > MAX_LOOPS:
                     print("ERROR: failed to calibrate the number of loops")
-                    print("Raw timing %s with %s is still smaller than "
-                          "the minimum time of %s"
-                          % (format_value(unit, raw_value),
-                             format_number(self.loops, 'loop'),
-                             format_timedelta(args.min_time)))
+                    print(
+                        f"Raw timing {format_value(unit, raw_value)} with {format_number(self.loops, 'loop')} is still smaller than the minimum time of {format_timedelta(args.min_time)}"
+                    )
                     sys.exit(1)
                 self.loops *= 2
                 # need more values for the calibration
@@ -158,24 +146,16 @@ class WorkerTask:
 
             sample1_str = format_values(unit, (s1_q1, mean1, s1_q3, stdev1, mad1))
             sample2_str = format_values(unit, (s2_q1, mean2, s2_q3, stdev2, mad2))
-            print("Calibration: warmups=%s" % format_number(nwarmup))
-            print("  first value: %s, outlier? %s (max: %s)"
-                  % (format_value(unit, first_value), outlier,
-                     format_value(unit, outlier_max)))
-            print("  sample1(%s): Q1=%s mean=%s Q3=%s stdev=%s MAD=%s"
-                  % (len(sample1),
-                     sample1_str[0],
-                     sample1_str[1],
-                     sample1_str[2],
-                     sample1_str[3],
-                     sample1_str[4]))
-            print("  sample2(%s): Q1=%s mean=%s Q3=%s stdev=%s MAD=%s"
-                  % (len(sample2),
-                     sample2_str[0],
-                     sample2_str[1],
-                     sample2_str[2],
-                     sample2_str[3],
-                     sample2_str[4]))
+            print(f"Calibration: warmups={format_number(nwarmup)}")
+            print(
+                f"  first value: {format_value(unit, first_value)}, outlier? {outlier} (max: {format_value(unit, outlier_max)})"
+            )
+            print(
+                f"  sample1({len(sample1)}): Q1={sample1_str[0]} mean={sample1_str[1]} Q3={sample1_str[2]} stdev={sample1_str[3]} MAD={sample1_str[4]}"
+            )
+            print(
+                f"  sample2({len(sample2)}): Q1={sample2_str[0]} mean={sample2_str[1]} Q3={sample2_str[2]} stdev={sample2_str[3]} MAD={sample2_str[4]}"
+            )
             print("  diff: Q1=%+.0f%% mean=%+.0f%% Q3=%+.0f%% stdev=%+.0f%% MAD=%+.0f%%"
                   % (q1_diff * 100,
                      mean_diff * 100,
@@ -189,29 +169,20 @@ class WorkerTask:
             return False
         if abs(mad_diff) > 0.10:
             return False
-        if abs(q1_diff) > 0.05:
-            return False
-        if abs(q3_diff) > 0.05:
-            return False
-        return True
+        return False if abs(q1_diff) > 0.05 else abs(q3_diff) <= 0.05
 
     def calibrate_warmups(self):
         # calibrate the number of warmups
         if self.loops < 1:
             raise ValueError("loops must be >= 1")
 
-        if self.args.recalibrate_warmups:
-            nwarmup = self.args.warmups
-        else:
-            nwarmup = 1
-
+        nwarmup = self.args.warmups if self.args.recalibrate_warmups else 1
         unit = self.metadata.get('unit')
         start = 0
         # test_calibrate_warmups() requires at least 2 values per sample
         while True:
             total = nwarmup + WARMUP_SAMPLE_SIZE * 2
-            nvalue = total - len(self.warmups)
-            if nvalue:
+            if nvalue := total - len(self.warmups):
                 self._compute_values(self.warmups, nvalue,
                                      is_warmup=True,
                                      start=start)
@@ -224,12 +195,12 @@ class WorkerTask:
                 print("ERROR: failed to calibrate the number of warmups")
                 values = [format_value(unit, value)
                           for loops, value in self.warmups]
-                print("Values (%s): %s" % (len(values), ', '.join(values)))
+                print(f"Values ({len(values)}): {', '.join(values)}")
                 sys.exit(1)
             nwarmup += 1
 
         if self.args.verbose:
-            print("Calibration: use %s warmups" % format_number(nwarmup))
+            print(f"Calibration: use {format_number(nwarmup)} warmups")
             print()
 
         if self.args.recalibrate_warmups:
@@ -242,10 +213,7 @@ class WorkerTask:
         if not args.recalibrate_loops:
             self.loops = 1
 
-        if args.warmups is not None:
-            nvalue = args.warmups
-        else:
-            nvalue = 1
+        nvalue = args.warmups if args.warmups is not None else 1
         nvalue += args.values
         self._compute_values(self.warmups, nvalue,
                              is_warmup=True,
@@ -253,7 +221,7 @@ class WorkerTask:
 
         if args.verbose:
             print()
-            print("Calibration: use %s loops" % format_number(self.loops))
+            print(f"Calibration: use {format_number(self.loops)} loops")
             print()
 
         if args.recalibrate_loops:

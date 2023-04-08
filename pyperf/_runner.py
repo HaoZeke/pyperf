@@ -89,9 +89,9 @@ class Runner:
         cls = self.__class__
         key = id(cls)
         if key in cls._created:
-            raise RuntimeError("only one %s instance must be created "
-                               "per process: use the same instance to run "
-                               "all benchmarks" % cls.__name__)
+            raise RuntimeError(
+                f"only one {cls.__name__} instance must be created per process: use the same instance to run all benchmarks"
+            )
         cls._created.add(key)
 
         # Use lazy import to limit imports on 'import pyperf'
@@ -99,35 +99,17 @@ class Runner:
 
         has_jit = pyperf.python_has_jit()
         if not values:
-            if has_jit:
-                # Since PyPy JIT has less processes:
-                # run more values per process
-                values = 10
-            else:
-                values = 3
+            values = 10 if has_jit else 3
         if not processes:
-            if has_jit:
-                # Use less processes than non-JIT, because JIT requires more
-                # warmups and so each worker is slower
-                processes = 6
-            else:
-                processes = 20
-
-        if metadata is not None:
-            self.metadata = metadata
-        else:
-            self.metadata = {}
-
-        # Worker task identifier: count how many times _worker() was called,
-        # see the --worker-task command line option
-        self._worker_task = 0
-
+            processes = 6 if has_jit else 20
+        self.metadata = metadata if metadata is not None else {}
         # Set used to check that benchmark names are unique
         self._bench_names = set()
 
         # result of argparser.parse_args()
         self.args = None
 
+        self._worker_task = 0
         # callback used to prepare command line arguments to spawn a worker
         # child process. The callback is called with prepare(runner.args, cmd).
         # args must be modified in-place.
@@ -138,16 +120,10 @@ class Runner:
         #
         # For example, "python3 -m pyperf timeit" sets program_args to
         # ('-m', 'pyperf', 'timeit').
-        if program_args:
-            self._program_args = program_args
-        else:
-            self._program_args = (sys.argv[0],)
+        self._program_args = program_args or (sys.argv[0], )
         self._show_name = show_name
 
-        if _argparser is not None:
-            parser = _argparser
-        else:
-            parser = argparse.ArgumentParser()
+        parser = _argparser if _argparser is not None else argparse.ArgumentParser()
         parser.description = 'Benchmark'
         parser.add_argument('--rigorous', action="store_true",
                             help='Spend longer running tests '
@@ -156,23 +132,32 @@ class Runner:
                             help='Get rough answers quickly')
         parser.add_argument("--debug-single-value", action="store_true",
                             help="Debug mode, only compute a single value")
-        parser.add_argument('-p', '--processes',
-                            type=strictly_positive, default=processes,
-                            help='number of processes used to run benchmarks '
-                                 '(default: %s)' % processes)
-        parser.add_argument('-n', '--values', dest="values",
-                            type=strictly_positive, default=values,
-                            help='number of values per process (default: %s)'
-                                 % values)
+        parser.add_argument(
+            '-p',
+            '--processes',
+            type=strictly_positive,
+            default=processes,
+            help=f'number of processes used to run benchmarks (default: {processes})',
+        )
+        parser.add_argument(
+            '-n',
+            '--values',
+            dest="values",
+            type=strictly_positive,
+            default=values,
+            help=f'number of values per process (default: {values})',
+        )
         parser.add_argument('-w', '--warmups',
                             type=positive_or_nul,
                             help='number of skipped values per run used '
                                  'to warmup the benchmark')
-        parser.add_argument('-l', '--loops',
-                            type=positive_or_nul, default=loops,
-                            help='number of loops per value, 0 means '
-                                 'automatic calibration (default: %s)'
-                            % loops)
+        parser.add_argument(
+            '-l',
+            '--loops',
+            type=positive_or_nul,
+            default=loops,
+            help=f'number of loops per value, 0 means automatic calibration (default: {loops})',
+        )
         parser.add_argument('-v', '--verbose', action="store_true",
                             help='enable verbose mode')
         parser.add_argument('-q', '--quiet', action="store_true",
@@ -184,11 +169,12 @@ class Runner:
                             help='write results encoded to JSON into FILENAME')
         parser.add_argument('--append', metavar='FILENAME',
                             help='append results encoded to JSON into FILENAME')
-        parser.add_argument('--min-time', type=float, default=min_time,
-                            help='Minimum duration in seconds of a single '
-                                 'value, used to calibrate the number of '
-                                 'loops (default: %s)'
-                            % format_timedelta(min_time))
+        parser.add_argument(
+            '--min-time',
+            type=float,
+            default=min_time,
+            help=f'Minimum duration in seconds of a single value, used to calibrate the number of loops (default: {format_timedelta(min_time)})',
+        )
         parser.add_argument('--worker', action='store_true',
                             help='Worker process, run the benchmark.')
         parser.add_argument('--worker-task', type=positive_or_nul, metavar='TASK_ID',
@@ -261,7 +247,7 @@ class Runner:
 
     def _only_in_worker(self, option):
         if not self.args.worker:
-            raise CLIError("option %s requires --worker" % option)
+            raise CLIError(f"option {option} requires --worker")
 
     def _process_args_impl(self):
         args = self.args
@@ -336,7 +322,7 @@ class Runner:
             try:
                 import tracemalloc   # noqa
             except ImportError as exc:
-                raise CLIError("fail to import tracemalloc: %s" % exc)
+                raise CLIError(f"fail to import tracemalloc: {exc}")
 
         if args.track_memory:
             if MS_WINDOWS:
@@ -345,10 +331,8 @@ class Runner:
                 from pyperf._psutil_memory import check_tracking_memory
             else:
                 from pyperf._linux_memory import check_tracking_memory
-            err_msg = check_tracking_memory()
-            if err_msg:
-                raise CLIError("unable to track the memory usage "
-                               "(--track-memory): %s" % err_msg)
+            if err_msg := check_tracking_memory():
+                raise CLIError(f"unable to track the memory usage (--track-memory): {err_msg}")
 
         args.python = abs_executable(args.python)
         if args.compare_to:
@@ -364,7 +348,7 @@ class Runner:
         try:
             self._process_args_impl()
         except CLIError as exc:
-            print("ERROR: %s" % str(exc))
+            print(f"ERROR: {str(exc)}")
             sys.exit(1)
 
     def _set_args(self, args):
@@ -397,25 +381,23 @@ class Runner:
 
         if set_cpu_affinity(cpus):
             if self.args.verbose:
-                if isolated:
-                    text = ("Pin process to isolated CPUs: %s"
-                            % format_cpu_list(cpus))
-                else:
-                    text = ("Pin process to CPUs: %s"
-                            % format_cpu_list(cpus))
+                text = (
+                    f"Pin process to isolated CPUs: {format_cpu_list(cpus)}"
+                    if isolated
+                    else f"Pin process to CPUs: {format_cpu_list(cpus)}"
+                )
                 print(text)
 
             if isolated:
                 self.args.affinity = format_cpu_list(cpus)
-        else:
-            if not isolated:
-                print("ERROR: CPU affinity not available.", file=sys.stderr)
-                print("Use Python 3.3 or newer, or install psutil dependency")
-                sys.exit(1)
-            elif not self.args.quiet:
-                print("WARNING: unable to pin worker processes to "
-                      "isolated CPUs, CPU affinity not available")
-                print("Use Python 3.3 or newer, or install psutil dependency")
+        elif not isolated:
+            print("ERROR: CPU affinity not available.", file=sys.stderr)
+            print("Use Python 3.3 or newer, or install psutil dependency")
+            sys.exit(1)
+        elif not self.args.quiet:
+            print("WARNING: unable to pin worker processes to "
+                  "isolated CPUs, CPU affinity not available")
+            print("Use Python 3.3 or newer, or install psutil dependency")
 
     def _process_priority(self):
         if not MS_WINDOWS:
@@ -460,7 +442,7 @@ class Runner:
                 bench = self._manager()
         except KeyboardInterrupt:
             what = "Benchmark worker" if args.worker else "Benchmark"
-            print("%s interrupted: exit" % what, file=sys.stderr)
+            print(f"{what} interrupted: exit", file=sys.stderr)
             sys.exit(1)
 
         self._worker_task += 1
@@ -472,7 +454,7 @@ class Runner:
             return
 
         args = ', '.join(map(repr, sorted(kwargs)))
-        raise TypeError('unexpected keyword argument %s' % args)
+        raise TypeError(f'unexpected keyword argument {args}')
 
     def bench_time_func(self, name, time_func, *args, **kwargs):
         inner_loops = kwargs.pop('inner_loops', None)
@@ -587,10 +569,7 @@ class Runner:
             # asyncio.run gained the `loop_factory` arg only in Python 3.12.
             # we can go back to asyncio.run when Python 3.12 is the oldest
             # supported version for pyperf.
-            if loop_factory is None:
-                loop = asyncio.new_event_loop()
-            else:
-                loop = loop_factory()
+            loop = asyncio.new_event_loop() if loop_factory is None else loop_factory()
             asyncio.set_event_loop(loop)
             try:
                 dt = loop.run_until_complete(main())
@@ -686,18 +665,16 @@ class Runner:
         python_changed = args.python
 
         multiline = self._multiline_output()
-        if args.python_names:
-            name_ref, name_changed = args.python_names
-        else:
-            name_ref, name_changed = get_python_names(python_ref, python_changed)
-
+        name_ref, name_changed = args.python_names or get_python_names(
+            python_ref, python_changed
+        )
         benchs = []
         for python, name in ((python_ref, name_ref), (python_changed, name_changed)):
             if self._worker_task > 0:
                 print()
 
             if multiline:
-                display_title('Benchmark %s' % name)
+                display_title(f'Benchmark {name}')
             elif not args.quiet:
                 print(name, end=': ')
 
@@ -707,13 +684,12 @@ class Runner:
             if multiline:
                 self._display_result(bench)
             elif not args.quiet:
-                print(' ' + format_result_value(bench))
+                print(f' {format_result_value(bench)}')
 
             if multiline:
                 print()
             elif not args.quiet:
-                warnings = format_checks(bench)
-                if warnings:
+                if warnings := format_checks(bench):
                     print()
                     for line in warnings:
                         print(line)

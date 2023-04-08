@@ -27,13 +27,10 @@ except ImportError:
 
 
 def get_max_rss():
-    if resource is not None:
-        usage = resource.getrusage(resource.RUSAGE_CHILDREN)
-        if sys.platform == 'darwin':
-            return usage.ru_maxrss
-        return usage.ru_maxrss * 1024
-    else:
+    if resource is None:
         return 0
+    usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return usage.ru_maxrss if sys.platform == 'darwin' else usage.ru_maxrss * 1024
 
 
 def merge_profile_stats_files(src, dst):
@@ -69,8 +66,7 @@ def bench_process(loops, args, kw, profile_filename=None):
 
         exitcode = proc.returncode
         if exitcode != 0:
-            print("Command failed with exit code %s" % exitcode,
-                  file=sys.stderr)
+            print(f"Command failed with exit code {exitcode}", file=sys.stderr)
             if profile_filename:
                 os.unlink(temp_profile_filename)
             sys.exit(exitcode)
@@ -90,13 +86,15 @@ def bench_process(loops, args, kw, profile_filename=None):
 def main():
     # Make sure that the pyperf module wasn't imported
     if 'pyperf' in sys.modules:
-        print("ERROR: don't run %s -m pyperf._process, run the .py script"
-              % os.path.basename(sys.executable))
+        print(
+            f"ERROR: don't run {os.path.basename(sys.executable)} -m pyperf._process, run the .py script"
+        )
         sys.exit(1)
 
     if len(sys.argv) < 3:
-        print("Usage: %s %s loops program [arg1 arg2 ...] [--profile profile]"
-              % (os.path.basename(sys.executable), __file__))
+        print(
+            f"Usage: {os.path.basename(sys.executable)} {__file__} loops program [arg1 arg2 ...] [--profile profile]"
+        )
         sys.exit(1)
 
     if "--profile" in sys.argv:

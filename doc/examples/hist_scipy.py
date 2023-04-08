@@ -10,13 +10,8 @@ def display_histogram_scipy(bench, mean, bins):
     values = bench.get_values()
     values = sorted(values)
 
-    if mean:
-        fit = stats.norm.pdf(values, bench.mean(), bench.stdev())
-        pylab.plot(values, fit, '-o', label='mean-stdev')
-    else:
-        fit = stats.norm.pdf(values, bench.mean(), bench.stdev())
-        pylab.plot(values, fit, '-o', label='mean-stdev')
-
+    fit = stats.norm.pdf(values, bench.mean(), bench.stdev())
+    pylab.plot(values, fit, '-o', label='mean-stdev')
     plt.legend(loc='upper right', shadow=True, fontsize='x-large')
     pylab.hist(values, bins=bins)
     pylab.show()

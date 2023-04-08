@@ -40,7 +40,6 @@ def tdist95conf_level(df):
         A float.
     """
     df = int(round(df))
-    highest_table_df = len(_T_DIST_95_CONF_LEVELS)
     if df >= 200:
         return 1.960
     if df >= 100:
@@ -53,9 +52,12 @@ def tdist95conf_level(df):
         return 2.009
     if df >= 40:
         return 2.021
-    if df >= highest_table_df:
-        return _T_DIST_95_CONF_LEVELS[highest_table_df - 1]
-    return _T_DIST_95_CONF_LEVELS[df]
+    highest_table_df = len(_T_DIST_95_CONF_LEVELS)
+    return (
+        _T_DIST_95_CONF_LEVELS[highest_table_df - 1]
+        if df >= highest_table_df
+        else _T_DIST_95_CONF_LEVELS[df]
+    )
 
 
 def pooled_sample_variance(sample1, sample2):
@@ -125,8 +127,7 @@ def parse_run_list(run_list):
                 parts = part.split('-', 1)
                 first = int(parts[0])
                 last = int(parts[1])
-                for run in range(first, last + 1):
-                    runs.append(run)
+                runs.extend(iter(range(first, last + 1)))
             else:
                 runs.append(int(part))
         except ValueError:
@@ -208,11 +209,8 @@ def popen_killer(proc):
             proc.stdout.close()
         if proc.stderr:
             proc.stderr.close()
-        try:
+        with contextlib.suppress(OSError):
             proc.kill()
-        except OSError:
-            # process already terminated
-            pass
         proc.wait()
         raise
 
@@ -226,10 +224,7 @@ def get_python_names(python1, python2):
     # FIXME: merge with format_filename_func() of __main__.py
     name1 = os.path.basename(python1)
     name2 = os.path.basename(python2)
-    if name1 != name2:
-        return (name1, name2)
-
-    return (python1, python2)
+    return (name1, name2) if name1 != name2 else (python1, python2)
 
 
 def abs_executable(python):
@@ -261,8 +256,6 @@ def abs_executable(python):
 def create_environ(inherit_environ, locale, copy_all):
     if copy_all:
         return os.environ
-    env = {}
-
     copy_env = ["PATH", "PYTHONPATH", "HOME", "TEMP", "COMSPEC", "SystemRoot", "SystemDrive"]
     if locale:
         copy_env.extend(('LANG', 'LC_ADDRESS', 'LC_ALL', 'LC_COLLATE',
@@ -272,10 +265,7 @@ def create_environ(inherit_environ, locale, copy_all):
     if inherit_environ:
         copy_env.extend(inherit_environ)
 
-    for name in copy_env:
-        if name in os.environ:
-            env[name] = os.environ[name]
-    return env
+    return {name: os.environ[name] for name in copy_env if name in os.environ}
 
 
 class _Pipe(object):
@@ -329,10 +319,7 @@ class WritePipe(_Pipe):
     @classmethod
     def from_subprocess(cls, arg):
         arg = int(arg)
-        if MS_WINDOWS:
-            fd = msvcrt.open_osfhandle(arg, os.O_WRONLY)
-        else:
-            fd = arg
+        fd = msvcrt.open_osfhandle(arg, os.O_WRONLY) if MS_WINDOWS else arg
         return cls(fd)
 
     def open_text(self):
@@ -365,12 +352,11 @@ def percentile(values, p):
     k = (len(values) - 1) * p
     f = math.floor(k)
     c = math.ceil(k)
-    if f != c:
-        d0 = values[f] * (c - k)
-        d1 = values[c] * (k - f)
-        return d0 + d1
-    else:
+    if f == c:
         return values[int(k)]
+    d0 = values[f] * (c - k)
+    d1 = values[c] * (k - f)
+    return d0 + d1
 
 
 if hasattr(statistics, 'geometric_mean'):
@@ -387,10 +373,10 @@ else:
 
 
 def geometric_mean(data):
-    data = list(map(float, data))
-    if not data:
+    if data := list(map(float, data)):
+        return _geometric_mean(data)
+    else:
         raise ValueError("empty data")
-    return _geometric_mean(data)
 
 
 def merge_profile_stats(profiler, dst):

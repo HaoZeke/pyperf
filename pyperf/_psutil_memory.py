@@ -38,7 +38,4 @@ def check_tracking_memory():
     mem_thread = PeakMemoryUsageThread()
     mem_thread.get()
 
-    if not mem_thread.peak_usage:
-        return "memory usage is zero"
-
-    return None
+    return None if mem_thread.peak_usage else "memory usage is zero"

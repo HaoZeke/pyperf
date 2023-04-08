@@ -24,11 +24,7 @@ def format_timedelta(value):
 
 def format_filesize(size):
     if size < 10 * 1024:
-        if size != 1:
-            return '%.0f bytes' % size
-        else:
-            return '%.0f byte' % size
-
+        return '%.0f bytes' % size if size != 1 else '%.0f byte' % size
     if size > 10 * 1024 * 1024:
         return '%.1f MB' % (size / (1024.0 * 1024.0))
 
@@ -75,7 +71,7 @@ def format_number(number, unit=None, units=None):
             if r:
                 break
         if not r:
-            number = '10^%s' % pow10
+            number = f'10^{pow10}'
 
     if isinstance(number, int) and number > 8192:
         pow2 = 0
@@ -86,17 +82,16 @@ def format_number(number, unit=None, units=None):
             if r:
                 break
         if not r:
-            number = '2^%s' % pow2
+            number = f'2^{pow2}'
 
     if not unit:
         return str(number)
 
-    if plural:
-        if not units:
-            units = unit + 's'
-        return '%s %s' % (number, units)
-    else:
-        return '%s %s' % (number, unit)
+    if not plural:
+        return f'{number} {unit}'
+    if not units:
+        units = f'{unit}s'
+    return f'{number} {units}'
 
 
 def format_integers(numbers):

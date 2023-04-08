@@ -19,9 +19,8 @@ class ExampleTests(unittest.TestCase):
     def tearDownClass(cls):
         scripts = glob.glob(os.path.join(EXAMPLES_DIR, '*.py'))
         scripts = list(map(os.path.basename, scripts))
-        not_tested = set(scripts) - cls.IGNORED - cls.TESTED
-        if not_tested:
-            raise Exception("not tested scripts: %s" % sorted(not_tested))
+        if not_tested := set(scripts) - cls.IGNORED - cls.TESTED:
+            raise Exception(f"not tested scripts: {sorted(not_tested)}")
 
     def check_command(self, script, args):
         self.TESTED.add(script)

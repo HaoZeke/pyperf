@@ -32,13 +32,13 @@ class Replay(object):
             old_loops = args.loops
             args.loops = run.get_loops()
             if args.loops != old_loops:
-                print("Set loops to %s: value from the JSON" % args.loops)
+                print(f"Set loops to {args.loops}: value from the JSON")
             # FIXME: handle inner_loops
             self.run_id += 1
-            self.write_session()
         else:
             args.session_filename = tempfile.mktemp()
-            self.write_session()
+
+        self.write_session()
 
     def read_session(self):
         filename = self.args.session_filename
